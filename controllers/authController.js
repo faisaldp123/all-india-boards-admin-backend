@@ -1,10 +1,11 @@
 const User = require("../models/User");
-const Admin = require("../models/Admin")
+const Admin = require("../models/Admin");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
-exports.register = async (req, res) => {
+// ================= USER =================
 
+exports.register = async (req, res) => {
   const { name, email, password } = req.body;
 
   const hashed = await bcrypt.hash(password, 10);
@@ -12,7 +13,7 @@ exports.register = async (req, res) => {
   const user = new User({
     name,
     email,
-    password: hashed
+    password: hashed,
   });
 
   await user.save();
@@ -21,7 +22,6 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
@@ -32,31 +32,43 @@ exports.login = async (req, res) => {
 
   if (!match) return res.status(400).json("Wrong password");
 
-  const token = jwt.sign({ id: user._id }, "secret");
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
   res.json({ token, user });
 };
 
+// ================= ADMIN =================
+
 exports.adminLogin = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const admin = await Admin.findOne({ email });
+    console.log("Incoming email:", email); // 🔍 debug
 
-  if (!admin) {
-    return res.status(404).json({ message: "Admin not found" });
+    const admin = await Admin.findOne({ email });
+
+    console.log("Admin found:", admin); // 🔍 debug
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: admin._id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token, role: admin.role });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
-
-  const isMatch = await bcrypt.compare(password, admin.password);
-
-  if (!isMatch) {
-    return res.status(401).json({ message: "Invalid credentials" });
-  }
-
-  const token = jwt.sign(
-    { id: admin._id, role: admin.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-  res.json({ token, role: admin.role });
 };
