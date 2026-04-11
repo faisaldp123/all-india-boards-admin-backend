@@ -8,20 +8,17 @@ const categorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     slug: {
       type: String,
-      lowercase: true,
       unique: true,
     },
   },
   { timestamps: true }
 );
 
-// ✅ SIMPLE SLUG (NO LOOP = NO CRASH)
 categorySchema.pre("save", function (next) {
   if (this.name) {
-    this.slug = slugify(this.name, { lower: true, strict: true });
+    this.slug = slugify(this.name, { lower: true });
   }
   next();
 });

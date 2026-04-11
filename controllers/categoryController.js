@@ -3,24 +3,15 @@ const Category = require("../models/Category");
 // ✅ CREATE CATEGORY
 exports.createCategory = async (req, res) => {
   try {
-    console.log("🔥 API HIT");
     console.log("🔥 BODY:", req.body);
 
-    // ✅ safety check
-    if (!req.body) {
-      return res.status(400).json({ message: "No body received" });
+    const { name } = req.body || {};
+
+    if (!name) {
+      return res.status(400).json({ message: "Name required" });
     }
 
-    const { name } = req.body;
-
-    if (!name || name.trim() === "") {
-      return res.status(400).json({ message: "Category name required" });
-    }
-
-    const Category = require("../models/Category");
-
-    // ✅ prevent duplicate crash
-    const existing = await Category.findOne({ name: name.trim() });
+    const existing = await Category.findOne({ name });
 
     if (existing) {
       return res.status(400).json({
@@ -28,22 +19,24 @@ exports.createCategory = async (req, res) => {
       });
     }
 
-    const category = new Category({
-      name: name.trim(),
-    });
+    const category = new Category({ name });
 
-    const saved = await category.save();
+    await category.save();
 
-    console.log("✅ SAVED:", saved);
-
-    res.status(201).json(saved);
+    res.status(201).json(category);
 
   } catch (error) {
-    console.error("❌ REAL ERROR 👉", error);
+    console.error("❌ ERROR:", error);
+
+    // 🔥 HANDLE DUPLICATE KEY
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Duplicate category or slug",
+      });
+    }
 
     res.status(500).json({
-      message: "Server error",
-      error: error.message,
+      message: error.message,
     });
   }
 };
