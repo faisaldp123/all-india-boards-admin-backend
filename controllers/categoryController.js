@@ -3,13 +3,24 @@ const Category = require("../models/Category");
 // ✅ CREATE CATEGORY
 exports.createCategory = async (req, res) => {
   try {
+    console.log("🔥 API HIT");
+    console.log("🔥 BODY:", req.body);
+
+    // ✅ safety check
+    if (!req.body) {
+      return res.status(400).json({ message: "No body received" });
+    }
+
     const { name } = req.body;
 
-    if (!name) {
+    if (!name || name.trim() === "") {
       return res.status(400).json({ message: "Category name required" });
     }
 
-    const existing = await Category.findOne({ name });
+    const Category = require("../models/Category");
+
+    // ✅ prevent duplicate crash
+    const existing = await Category.findOne({ name: name.trim() });
 
     if (existing) {
       return res.status(400).json({
@@ -17,17 +28,18 @@ exports.createCategory = async (req, res) => {
       });
     }
 
-    const category = new Category({ name });
-
-    await category.save();
-
-    res.status(201).json({
-      message: "Category created successfully",
-      category,
+    const category = new Category({
+      name: name.trim(),
     });
 
+    const saved = await category.save();
+
+    console.log("✅ SAVED:", saved);
+
+    res.status(201).json(saved);
+
   } catch (error) {
-    console.error("CREATE CATEGORY ERROR:", error);
+    console.error("❌ REAL ERROR 👉", error);
 
     res.status(500).json({
       message: "Server error",

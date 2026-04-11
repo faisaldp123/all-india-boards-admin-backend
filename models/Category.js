@@ -7,7 +7,6 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      unique: true,
     },
 
     slug: {
@@ -19,27 +18,12 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ AUTO GENERATE UNIQUE SLUG
-categorySchema.pre("save", async function (next) {
-  try {
-    if (!this.name) return next();
-
-    let baseSlug = slugify(this.name, { lower: true, strict: true });
-    let slug = baseSlug;
-
-    let count = 1;
-
-    // 🔥 ensure slug is unique
-    while (await mongoose.models.Category.findOne({ slug })) {
-      slug = `${baseSlug}-${count++}`;
-    }
-
-    this.slug = slug;
-
-    next();
-  } catch (error) {
-    next(error);
+// ✅ SIMPLE SLUG (NO LOOP = NO CRASH)
+categorySchema.pre("save", function (next) {
+  if (this.name) {
+    this.slug = slugify(this.name, { lower: true, strict: true });
   }
+  next();
 });
 
 module.exports = mongoose.model("Category", categorySchema);
