@@ -3,18 +3,12 @@ const Category = require("../models/Category");
 // ✅ CREATE CATEGORY
 exports.createCategory = async (req, res) => {
   try {
-    console.log("BODY 👉", req.body);
-
     const { name } = req.body;
 
-    // ✅ Validation
     if (!name) {
-      return res.status(400).json({
-        message: "Category name is required",
-      });
+      return res.status(400).json({ message: "Category name required" });
     }
 
-    // ✅ Check duplicate (optional but good)
     const existing = await Category.findOne({ name });
 
     if (existing) {
@@ -33,7 +27,7 @@ exports.createCategory = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("CREATE CATEGORY ERROR 👉", error);
+    console.error("CREATE CATEGORY ERROR:", error);
 
     res.status(500).json({
       message: "Server error",
