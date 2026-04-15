@@ -11,28 +11,27 @@ const categorySchema = new mongoose.Schema(
     slug: {
       type: String,
       unique: true,
-      sparse: true, // ✅ allows multiple nulls, avoids duplicate index errors
+      sparse: true,
     },
   },
   { timestamps: true }
 );
 
-// ✅ Generate slug before saving
-categorySchema.pre("save", function (next) {
+// ✅ Generate slug before saving (NO next needed)
+categorySchema.pre("save", function () {
   if (this.name) {
-    this.slug = slugify(this.name, { lower: true });
+    this.slug = slugify(this.name, { lower: true, strict: true });
   }
-  next();
 });
 
-// ✅ Also generate slug when updating with findOneAndUpdate
-categorySchema.pre("findOneAndUpdate", function (next) {
+// ✅ Generate slug on update (safe handling)
+categorySchema.pre("findOneAndUpdate", function () {
   const update = this.getUpdate();
-  if (update.name) {
-    update.slug = slugify(update.name, { lower: true });
+
+  if (update?.name) {
+    update.slug = slugify(update.name, { lower: true, strict: true });
     this.setUpdate(update);
   }
-  next();
 });
 
 module.exports = mongoose.model("Category", categorySchema);
