@@ -12,19 +12,12 @@ const productSchema = new mongoose.Schema(
     slug: {
       type: String,
       unique: true,
+      index: true,
     },
 
-    description: {
-      type: String,
-    },
-
-    brand: {
-      type: String,
-    },
-
-    modelNumber: {
-      type: String,
-    },
+    description: String,
+    brand: String,
+    modelNumber: String,
 
     price: {
       type: Number,
@@ -36,7 +29,10 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
-    images: [String],
+    images: {
+      type: [String],
+      default: [],
+    },
 
     category: {
       type: mongoose.Schema.Types.ObjectId,
@@ -77,15 +73,33 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// 🔥 Auto slug generate
-productSchema.pre("save", function (next) {
+//
+// ✅ FIXED SLUG GENERATION (NO next())
+//
+
+productSchema.pre("save", function () {
   if (this.name) {
-    this.slug = slugify(this.name, { lower: true });
+    this.slug = slugify(this.name, { lower: true, strict: true });
   }
-  next();
 });
 
+//
+// ✅ FIX FOR UPDATE (IMPORTANT)
+//
+
+productSchema.pre("findOneAndUpdate", function () {
+  const update = this.getUpdate();
+
+  if (update?.name) {
+    update.slug = slugify(update.name, { lower: true, strict: true });
+    this.setUpdate(update);
+  }
+});
+
+//
 // 🔎 Search Index
+//
+
 productSchema.index({
   name: "text",
   description: "text",
