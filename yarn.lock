@@ -9,6 +9,16 @@
   dependencies:
     sparse-bitfield "^3.0.3"
 
+"@noble/ciphers@^1.0.0":
+  version "1.3.0"
+  resolved "https://registry.npmjs.org/@noble/ciphers/-/ciphers-1.3.0.tgz#f64b8ff886c240e644e5573c097f86e5b43676dc"
+  integrity sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw==
+
+"@noble/hashes@^1.6.0":
+  version "1.8.0"
+  resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz#cee43d801fcef9644b11b8194857695acd5f815a"
+  integrity sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==
+
 "@swc/helpers@^0.5.12":
   version "0.5.21"
   resolved "https://registry.yarnpkg.com/@swc/helpers/-/helpers-0.5.21.tgz#0b1b020317ee1282860ca66f7e9a7c7790f05ae0"
@@ -251,11 +261,6 @@ cors@^2.8.6:
   dependencies:
     object-assign "^4"
     vary "^1"
-
-crypto-js@^4.2.0:
-  version "4.2.0"
-  resolved "https://registry.yarnpkg.com/crypto-js/-/crypto-js-4.2.0.tgz#4d931639ecdfd12ff80e8186dba6af2c2e856631"
-  integrity sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==
 
 debug@^4, debug@^4.4.0, debug@^4.4.3:
   version "4.4.3"
@@ -578,10 +583,10 @@ is-promise@^4.0.0:
   resolved "https://registry.yarnpkg.com/is-promise/-/is-promise-4.0.0.tgz#42ff9f84206c1991d26debf520dd5c01042dd2f3"
   integrity sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==
 
-jpeg-exif@^1.1.4:
-  version "1.1.4"
-  resolved "https://registry.yarnpkg.com/jpeg-exif/-/jpeg-exif-1.1.4.tgz#781a65b6cd74f62cb1c493511020f8d3577a1c2b"
-  integrity sha512-a+bKEcCjtuW5WTdgeXFzswSrdqi0jk4XlEtZlx5A94wCoBpFjfFTbo/Tra5SpNCl/YFZPvcV1dJc+TAYeg6ROQ==
+js-md5@^0.8.3:
+  version "0.8.3"
+  resolved "https://registry.npmjs.org/js-md5/-/js-md5-0.8.3.tgz#921bab7efa95bfc9d62b87ee08a57f8fe4305b69"
+  integrity sha512-qR0HB5uP6wCuRMrWPTrkMaev7MJZwJuuw4fnwAzRgP4J4/F8RwtodOKpGp4XpqsLBFzzgqIO42efFAyz2Et6KQ==
 
 jsonwebtoken@^9.0.3:
   version "9.0.3"
@@ -849,14 +854,15 @@ path-to-regexp@^8.0.0:
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-8.4.2.tgz#795c420c4f7ca45c5b887366f622ee0c9852cccd"
   integrity sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA==
 
-pdfkit@^0.17.2:
-  version "0.17.2"
-  resolved "https://registry.yarnpkg.com/pdfkit/-/pdfkit-0.17.2.tgz#f77d7129ca49bc5015246b890d1aca6cb6b71f00"
-  integrity sha512-UnwF5fXy08f0dnp4jchFYAROKMNTaPqb/xgR8GtCzIcqoTnbOqtp3bwKvO4688oHI6vzEEs8Q6vqqEnC5IUELw==
+pdfkit@^0.18.0:
+  version "0.18.0"
+  resolved "https://registry.npmjs.org/pdfkit/-/pdfkit-0.18.0.tgz#573efa7f4c78a8ab1362232a05a589b97b292216"
+  integrity sha512-NvUwSDZ0eYEzqAiWwVQkRkjYUkZ48kcsHuCO31ykqPPIVkwoSDjDGiwIgHHNtsiwls3z3P/zy4q00hl2chg2Ug==
   dependencies:
-    crypto-js "^4.2.0"
+    "@noble/ciphers" "^1.0.0"
+    "@noble/hashes" "^1.6.0"
     fontkit "^2.0.4"
-    jpeg-exif "^1.1.4"
+    js-md5 "^0.8.3"
     linebreak "^1.1.0"
     png-js "^1.0.0"
 
