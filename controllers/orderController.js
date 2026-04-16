@@ -24,11 +24,9 @@ exports.createOrder = async (req, res) => {
         return res.status(400).json({ message: "Out of stock" });
       }
 
-      // reduce stock
       product.stock -= item.quantity;
       await product.save();
 
-      // snapshot
       orderItems.push({
         productId: product._id,
         name: product.name,
@@ -40,7 +38,7 @@ exports.createOrder = async (req, res) => {
     }
 
     const order = await Order.create({
-      userId: req.user.id, // ✅ secure
+      userId: req.user.id,
       products: orderItems,
       totalPrice,
       shippingAddress,
@@ -59,7 +57,8 @@ exports.createOrder = async (req, res) => {
 exports.getUserOrders = async (req, res) => {
   try {
     const orders = await Order.find({ userId: req.user.id })
-      .populate("products.productId");
+      .populate("products.productId")
+      .sort({ createdAt: -1 });
 
     res.json(orders);
   } catch (error) {
@@ -95,6 +94,40 @@ exports.updateOrderStatus = async (req, res) => {
       { orderStatus: req.body.status },
       { new: true }
     );
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🚚 ASSIGN TRACKING
+exports.assignTracking = async (req, res) => {
+  try {
+    const { trackingId, courierName } = req.body;
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        trackingId,
+        courierName,
+        trackingStatus: "Shipped",
+      },
+      { new: true }
+    );
+
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 📱 GET SINGLE ORDER (for future tracking page)
+exports.getSingleOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate("products.productId")
+      .populate("userId", "name email");
 
     res.json(order);
   } catch (error) {
