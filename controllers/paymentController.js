@@ -1,27 +1,35 @@
 const Razorpay = require("razorpay");
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_SECRET,
-});
+let razorpay;
 
-// CREATE ORDER PAYMENT
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_SECRET,
+  });
+} else {
+  console.warn("⚠️ Razorpay not configured");
+}
+
+// CREATE PAYMENT
 exports.createPayment = async (req, res) => {
   try {
+    if (!razorpay) {
+      return res.status(500).json({
+        message: "Payment service not configured",
+      });
+    }
+
     const { amount } = req.body;
 
-    const options = {
-      amount: amount * 100, // paisa
+    const order = await razorpay.orders.create({
+      amount: amount * 100,
       currency: "INR",
-      receipt: "order_rcptid_" + Date.now(),
-    };
-
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json(order);
 
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
