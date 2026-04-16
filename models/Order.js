@@ -1,103 +1,67 @@
-const Order = require("../models/Order");
-const Product = require("../models/Product");
+const mongoose = require("mongoose");
 
-// CREATE ORDER
-exports.createOrder = async (req, res) => {
-  try {
-    const { products, shippingAddress, paymentMethod } = req.body;
+const orderSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
 
-    if (!products || products.length === 0) {
-      return res.status(400).json({ message: "Cart is empty" });
-    }
+    products: [
+      {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+        },
+        name: String,
+        price: Number,
+        quantity: Number,
+      },
+    ],
 
-    let totalPrice = 0;
-    let orderItems = [];
+    totalPrice: {
+      type: Number,
+      required: true,
+    },
 
-    for (let item of products) {
-      const product = await Product.findById(item.productId);
+    shippingAddress: {
+      fullName: String,
+      phone: String,
+      address: String,
+      city: String,
+      state: String,
+      pincode: String,
+    },
 
-      if (!product) {
-        return res.status(404).json({ message: "Product not found" });
-      }
+    orderStatus: {
+      type: String,
+      enum: ["Pending", "Packed", "Shipped", "Delivered", "Cancelled"],
+      default: "Pending",
+    },
 
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ message: "Out of stock" });
-      }
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "Online"],
+      default: "COD",
+    },
 
-      // reduce stock
-      product.stock -= item.quantity;
-      await product.save();
+    paymentStatus: {
+      type: String,
+      enum: ["Pending", "Paid", "Failed"],
+      default: "Pending",
+    },
 
-      // snapshot
-      orderItems.push({
-        productId: product._id,
-        name: product.name,
-        price: product.price,
-        quantity: item.quantity,
-      });
+    trackingId: String,
+    courierName: String,
+    trackingStatus: {
+      type: String,
+      default: "Not Shipped",
+    },
 
-      totalPrice += product.price * item.quantity;
-    }
+  },
+  { timestamps: true }
+);
 
-    const order = await Order.create({
-      userId: req.user.id, // ✅ secure
-      products: orderItems,
-      totalPrice,
-      shippingAddress,
-      paymentMethod,
-    });
-
-    res.status(201).json(order);
-
-  } catch (error) {
-    console.error("ORDER ERROR:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// USER ORDERS
-exports.getUserOrders = async (req, res) => {
-  try {
-    const orders = await Order.find({ userId: req.user.id })
-      .populate("products.productId");
-
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// ADMIN ALL ORDERS
-exports.getAllOrders = async (req, res) => {
-  try {
-    const orders = await Order.find()
-      .populate("userId", "name email")
-      .populate("products.productId")
-      .sort({ createdAt: -1 });
-
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// UPDATE STATUS
-exports.updateOrderStatus = async (req, res) => {
-  try {
-    const allowed = ["Pending", "Packed", "Shipped", "Delivered", "Cancelled"];
-
-    if (!allowed.includes(req.body.status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { orderStatus: req.body.status },
-      { new: true }
-    );
-
-    res.json(order);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+// ✅ IMPORTANT LINE (DO NOT CHANGE)
+module.exports = mongoose.model("Order", orderSchema);
