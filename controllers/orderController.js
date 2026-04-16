@@ -122,7 +122,7 @@ exports.assignTracking = async (req, res) => {
   }
 };
 
-// 📱 GET SINGLE ORDER (for future tracking page)
+// 📱 GET SINGLE ORDER
 exports.getSingleOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
