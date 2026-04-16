@@ -11,21 +11,16 @@ const {
 const auth = require("../middleware/authMiddleware");
 const admin = require("../middleware/adminMiddleware");
 
-
-// Create order
+// ✅ Create order (user)
 router.post("/", auth, createOrder);
 
+// ✅ Get logged-in user's orders
+router.get("/my-orders", auth, getUserOrders);
 
-// User order history
-router.get("/user/:userId", auth, getUserOrders);
-
-
-// Admin get all orders
+// ✅ Admin: get all orders
 router.get("/", auth, admin, getAllOrders);
 
-
-// Admin update order status
+// ✅ Admin: update order status
 router.put("/:id/status", auth, admin, updateOrderStatus);
-
 
 module.exports = router;
