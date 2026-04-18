@@ -41,17 +41,16 @@ router.post(
   "/",
   auth,
   admin,
-  upload.array("images", 5),
-  createProduct
+  createProduct // ✅ removed multer
 );
+
 
 // Update product
 router.put(
   "/:id",
   auth,
   admin,
-  upload.array("images", 5),
-  updateProduct
+  updateProduct // ✅ removed multer
 );
 
 // Delete product
