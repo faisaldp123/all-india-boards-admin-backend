@@ -50,6 +50,9 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    isNewArrival: { type: Boolean, default: false },
+    isBestSeller: { type: Boolean, default: false },
+
     // 🔧 Specifications
     specifications: {
       boardNumber: String,

@@ -9,7 +9,7 @@ exports.createProduct = async (req, res) => {
       images: req.body.images || [] // ✅ from frontend (Cloudinary URLs)
     });
 
-    await product.save();
+    await product.save();   
 
     res.json(product);
 
@@ -28,7 +28,10 @@ exports.getProducts = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const products = await Product.find()
+    const filter = {};
+    if (req.query.newArrival === "true") filter.isNewArrival = true;
+    if (req.query.bestSeller === "true") filter.isBestSeller = true;
+    const products = await Product.find(filter)
       .populate("category")
       .sort({ createdAt: -1 })
       .skip(skip)
