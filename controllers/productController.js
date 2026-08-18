@@ -5,8 +5,11 @@ const Order = require("../models/Order");
 // Create Product
 exports.createProduct = async (req, res) => {
   try {
-
-    let imageUrls = [];
+    // The admin panel uploads to Cloudinary first and sends the resulting URLs
+    // as JSON. Preserve those URLs when this request is not multipart.
+    let imageUrls = Array.isArray(req.body.images)
+      ? req.body.images.filter((image) => typeof image === "string" && image.trim())
+      : [];
 
     if (req.files && req.files.length > 0) {
       imageUrls = req.files.map(file => file.path);
