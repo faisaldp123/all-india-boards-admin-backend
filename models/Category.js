@@ -13,6 +13,10 @@ const categorySchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    image: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

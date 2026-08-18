@@ -5,7 +5,7 @@ exports.createCategory = async (req, res) => {
   try {
     console.log("🔥 BODY:", req.body);
 
-    let { name } = req.body || {};
+    let { name, image = "" } = req.body || {};
 
     // ✅ Trim & normalize
     if (!name || !name.trim()) {
@@ -25,7 +25,7 @@ exports.createCategory = async (req, res) => {
       });
     }
 
-    const category = new Category({ name });
+    const category = new Category({ name, image });
     await category.save();
 
     res.status(201).json({
@@ -69,7 +69,7 @@ exports.getCategories = async (req, res) => {
 // ✅ UPDATE CATEGORY
 exports.updateCategory = async (req, res) => {
   try {
-    let { name } = req.body;
+    let { name, image } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
@@ -91,7 +91,7 @@ exports.updateCategory = async (req, res) => {
 
     const category = await Category.findByIdAndUpdate(
       req.params.id,
-      { name },
+      { name, ...(image !== undefined ? { image } : {}) },
       {
         new: true,
         runValidators: true,
