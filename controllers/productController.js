@@ -1,15 +1,25 @@
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 
+const imageUrlsFrom = (data) => {
+  const images = Array.isArray(data?.images)
+    ? data.images.filter((image) => typeof image === "string" && image.trim())
+    : [];
+  const ogImage = typeof data?.seo?.ogImage === "string" ? data.seo.ogImage.trim() : "";
+  return images.length ? images : ogImage ? [ogImage] : [];
+};
+
+const addImageFallback = (product) => ({ ...product, images: imageUrlsFrom(product) });
+
 // Create Product (UPDATED FOR MULTIPLE IMAGES)
 exports.createProduct = async (req, res) => {
   try {
     const product = new Product({
       ...req.body,
-      images: req.body.images || [] // ✅ from frontend (Cloudinary URLs)
+      images: imageUrlsFrom(req.body)
     });
 
-    await product.save();   
+    await product.save();
 
     res.json(product);
 
@@ -35,7 +45,8 @@ exports.getProducts = async (req, res) => {
       .populate("category")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const totalProducts = await Product.countDocuments();
 
@@ -43,7 +54,7 @@ exports.getProducts = async (req, res) => {
       totalProducts,
       totalPages: Math.ceil(totalProducts / limit),
       currentPage: page,
-      products
+      products: products.map(addImageFallback)
     });
 
   } catch (error) {
@@ -57,7 +68,8 @@ exports.getProduct = async (req, res) => {
   try {
 
     const product = await Product.findById(req.params.id)
-      .populate("category");
+      .populate("category")
+      .lean();
 
     if (!product) {
       return res.status(404).json({
@@ -65,7 +77,7 @@ exports.getProduct = async (req, res) => {
       });
     }
 
-    res.json(product);
+    res.json(addImageFallback(product));
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -77,9 +89,14 @@ exports.getProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
 
+    const updateData = { ...req.body };
+    if (Array.isArray(req.body.images) || req.body?.seo?.ogImage) {
+      updateData.images = imageUrlsFrom(req.body);
+    }
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true }
     );
 
