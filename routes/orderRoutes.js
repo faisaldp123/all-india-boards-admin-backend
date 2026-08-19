@@ -5,27 +5,30 @@ const {
   createOrder,
   getUserOrders,
   getAllOrders,
-  updateOrderStatus
+  updateOrderStatus,
+  assignTracking,
+  getSingleOrder
 } = require("../controllers/orderController");
 
 const auth = require("../middleware/authMiddleware");
 const admin = require("../middleware/adminMiddleware");
 
-
-// Create order
+// CREATE ORDER
 router.post("/", auth, createOrder);
 
+// USER ORDERS
+router.get("/my-orders", auth, getUserOrders);
 
-// User order history
-router.get("/user/:userId", auth, getUserOrders);
-
-
-// Admin get all orders
+// ADMIN ALL ORDERS
 router.get("/", auth, admin, getAllOrders);
 
-
-// Admin update order status
+// UPDATE STATUS
 router.put("/:id/status", auth, admin, updateOrderStatus);
 
+// 🚚 TRACKING
+router.put("/:id/tracking", auth, admin, assignTracking);
+
+// 📱 GET SINGLE ORDER
+router.get("/:id", auth, getSingleOrder);
 
 module.exports = router;

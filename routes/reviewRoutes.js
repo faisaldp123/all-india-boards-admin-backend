@@ -3,20 +3,20 @@ const router = express.Router();
 
 const {
   addReview,
-  getProductReviews,
-  deleteReview
+  getAllReviews,
+  deleteReview,
+  likeReview,
+  reviewStats,
 } = require("../controllers/reviewController");
 
 const auth = require("../middleware/authMiddleware");
 
-
-// add review
 router.post("/add", auth, addReview);
+router.get("/", getAllReviews);
 
-// get reviews for product
-router.get("/product/:productId", getProductReviews);
+router.post("/like/:id", auth, likeReview); // 👍
+router.get("/stats", reviewStats); // 📊
 
-// delete review
 router.delete("/:id", auth, deleteReview);
 
 module.exports = router;

@@ -1,99 +1,114 @@
 const mongoose = require("mongoose");
+const slugify = require("slugify");
 
 const productSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
 
     slug: {
       type: String,
-      unique: true
+      unique: true,
+      index: true,
     },
 
-    description: {
-      type: String
-    },
-
-    brand: {
-      type: String
-    },
-
-    modelNumber: {
-      type: String
-    },
+    description: String,
+    brand: String,
+    modelNumber: String,
 
     price: {
       type: Number,
-      required: true
+      required: true,
     },
 
     stock: {
       type: Number,
-      default: 0
+      default: 0,
     },
 
-    images: [String],
+    images: {
+      type: [String],
+      default: [],
+    },
 
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
-      required: true
+      required: true,
     },
 
     rating: {
       type: Number,
-      default: 0
+      default: 0,
     },
 
     reviewCount: {
       type: Number,
-      default: 0
+      default: 0,
     },
 
-    // 🔧 Product Specifications
+    isNewArrival: { type: Boolean, default: false },
+    isBestSeller: { type: Boolean, default: false },
+
+    // 🔧 Specifications
     specifications: {
-      boardNumber: {
-        type: String
-      },
+      boardNumber: String,
+      compatibleBrand: String,
+      screenSize: String,
+      resolution: String,
+      panelType: String,
+      ports: String,
+    },
 
-      compatibleBrand: {
-        type: String
-      },
-
-      screenSize: {
-        type: String
-      },
-
-      resolution: {
-        type: String
-      },
-
-      panelType: {
-        type: String
-      },
-
-      ports: {
-        type: String
-      }
-    }
-
+    // 🌐 SEO Fields
+    seo: {
+      metaTitle: String,
+      metaDescription: String,
+      ogImage: String,
+      siteUrl: String,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
+//
+// ✅ FIXED SLUG GENERATION (NO next())
+//
 
-// 🔎 Text Search Index
+productSchema.pre("save", function () {
+  if (this.name) {
+    this.slug = slugify(this.name, { lower: true, strict: true });
+  }
+});
+
+//
+// ✅ FIX FOR UPDATE (IMPORTANT)
+//
+
+productSchema.pre("findOneAndUpdate", function () {
+  const update = this.getUpdate();
+
+  if (update?.name) {
+    update.slug = slugify(update.name, { lower: true, strict: true });
+    this.setUpdate(update);
+  }
+});
+
+//
+// 🔎 Search Index
+//
+
 productSchema.index({
   name: "text",
   description: "text",
   brand: "text",
   modelNumber: "text",
-  "specifications.boardNumber": "text"
+  "specifications.boardNumber": "text",
 });
 
 module.exports = mongoose.model("Product", productSchema);
