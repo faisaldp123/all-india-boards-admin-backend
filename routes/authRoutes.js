@@ -5,6 +5,8 @@ const {
   register,
   login,
   adminLogin,
+  requestPasswordReset,
+  resetPassword,
   getUsers,
   getProfile,
   updateProfile
@@ -14,6 +16,8 @@ const auth = require("../middleware/authMiddleware");
 // USER
 router.post("/register", register);
 router.post("/login", login);
+router.post("/forgot-password", requestPasswordReset);
+router.post("/reset-password", resetPassword);
 
 // ADMIN
 router.post("/admin-login", adminLogin);
