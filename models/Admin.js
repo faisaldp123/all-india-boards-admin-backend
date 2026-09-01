@@ -7,6 +7,8 @@ const adminSchema = new mongoose.Schema({
     type: String,
     default: "admin",
   },
+  passwordResetToken: String,
+  passwordResetExpires: Date,
 });
 
 module.exports = mongoose.model("Admin", adminSchema);
