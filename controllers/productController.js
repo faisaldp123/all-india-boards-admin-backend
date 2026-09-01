@@ -14,9 +14,24 @@ const addImageFallback = (product) => ({ ...product, images: imageUrlsFrom(produ
 // Create Product (UPDATED FOR MULTIPLE IMAGES)
 exports.createProduct = async (req, res) => {
   try {
+    // The admin panel uploads to Cloudinary first and sends the resulting URLs
+    // as JSON. Preserve those URLs when this request is not multipart.
+    let imageUrls = Array.isArray(req.body.images)
+      ? req.body.images.filter((image) => typeof image === "string" && image.trim())
+      : [];
+
+    if (req.files && req.files.length > 0) {
+      imageUrls = req.files.map(file => file.path);
+    }
+    if (!imageUrls.length) imageUrls = imageUrlsFrom(req.body);
+
     const product = new Product({
       ...req.body,
+
       images: imageUrlsFrom(req.body)
+
+      images: imageUrls
+
     });
 
     await product.save();

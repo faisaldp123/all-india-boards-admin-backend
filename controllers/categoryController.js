@@ -1,151 +1,59 @@
 const Category = require("../models/Category");
+const slugify = require("slugify");
 
-// ✅ CREATE CATEGORY
+const escaped = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const categorySlug = (name) => slugify(name, { lower: true, strict: true });
+
 exports.createCategory = async (req, res) => {
   try {
-    console.log("🔥 BODY:", req.body);
+    const name = String(req.body?.name || "").trim();
+    const image = typeof req.body?.image === "string" ? req.body.image.trim() : "";
+    if (!name) return res.status(400).json({ message: "Category name is required" });
 
-    let { name, image = "" } = req.body || {};
+    const slug = categorySlug(name);
+    const existing = await Category.findOne({ $or: [{ slug }, { name: { $regex: `^${escaped(name)}$`, $options: "i" } }] });
+    if (existing) return res.status(400).json({ message: "Category already exists" });
 
-    // ✅ Trim & normalize
-    if (!name || !name.trim()) {
-      return res.status(400).json({ message: "Name is required" });
-    }
-
-    name = name.trim();
-
-    // ✅ Case-insensitive check (important)
-    const existing = await Category.findOne({
-      name: { $regex: `^${name}$`, $options: "i" },
-    });
-
-    if (existing) {
-      return res.status(400).json({
-        message: "Category already exists",
-      });
-    }
-
-    const category = new Category({ name, image });
-    await category.save();
-
-    res.status(201).json({
-      message: "Category created successfully",
-      category,
-    });
+    const category = await Category.create({ name, slug, image });
+    res.status(201).json(category);
   } catch (error) {
-    console.error("❌ CREATE ERROR:", error);
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Duplicate category or slug",
-      });
-    }
-
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: error.message,
-      });
-    }
-
-    res.status(500).json({
-      message: "Server error while creating category",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Could not create category", error: error.message });
   }
 };
 
-// ✅ GET ALL
-exports.getCategories = async (req, res) => {
+exports.getCategories = async (_req, res) => {
   try {
-    const categories = await Category.find().sort({ createdAt: -1 });
-
-    res.json(categories);
+    res.json(await Category.find().sort({ createdAt: -1 }));
   } catch (error) {
-    console.error("❌ FETCH ERROR:", error);
-    res.status(500).json({ message: "Error fetching categories" });
+    res.status(500).json({ message: "Could not fetch categories", error: error.message });
   }
 };
 
-// ✅ UPDATE CATEGORY
 exports.updateCategory = async (req, res) => {
   try {
-    let { name, image } = req.body;
+    const name = String(req.body?.name || "").trim();
+    if (!name) return res.status(400).json({ message: "Category name is required" });
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({ message: "Name is required" });
-    }
+    const slug = categorySlug(name);
+    const existing = await Category.findOne({ _id: { $ne: req.params.id }, $or: [{ slug }, { name: { $regex: `^${escaped(name)}$`, $options: "i" } }] });
+    if (existing) return res.status(400).json({ message: "Category already exists" });
 
-    name = name.trim();
-
-    // ✅ Prevent duplicate (excluding current ID)
-    const existing = await Category.findOne({
-      name: { $regex: `^${name}$`, $options: "i" },
-      _id: { $ne: req.params.id },
-    });
-
-    if (existing) {
-      return res.status(400).json({
-        message: "Category with this name already exists",
-      });
-    }
-
-    const category = await Category.findByIdAndUpdate(
-      req.params.id,
-      { name, ...(image !== undefined ? { image } : {}) },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
-
-    if (!category) {
-      return res.status(404).json({ message: "Category not found" });
-    }
-
-    res.json({
-      message: "Category updated successfully",
-      category,
-    });
+    const update = { name, slug };
+    if (typeof req.body.image === "string") update.image = req.body.image.trim();
+    const category = await Category.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    if (!category) return res.status(404).json({ message: "Category not found" });
+    res.json(category);
   } catch (error) {
-    console.error("❌ UPDATE ERROR:", error);
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Duplicate category or slug",
-      });
-    }
-
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        message: error.message,
-      });
-    }
-
-    res.status(500).json({
-      message: "Update failed",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Could not update category", error: error.message });
   }
 };
 
-// ✅ DELETE CATEGORY
 exports.deleteCategory = async (req, res) => {
   try {
-    const deleted = await Category.findByIdAndDelete(req.params.id);
-
-    if (!deleted) {
-      return res.status(404).json({ message: "Category not found" });
-    }
-
-    res.json({
-      message: "Category deleted successfully",
-    });
+    const category = await Category.findByIdAndDelete(req.params.id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+    res.json({ message: "Category deleted successfully" });
   } catch (error) {
-    console.error("❌ DELETE ERROR:", error);
-
-    res.status(500).json({
-      message: "Delete failed",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Could not delete category", error: error.message });
   }
 };
