@@ -3,44 +3,100 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
 
-const mailTransport = () =>
-  nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: Number(process.env.SMTP_PORT) === 465,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+/* =========================================================
+   SMTP CONFIGURATION
+========================================================= */
 
-const formatCurrency = (amount) =>
-  `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+
+const mailTransport = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: SMTP_PORT,
+
+  // 465 = SSL
+  // 587 = STARTTLS
+  secure: SMTP_PORT === 465,
+
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+
+  /*
+   * VERY IMPORTANT
+   *
+   * If SMTP is down/wrong, do NOT allow the order API
+   * to remain blocked for a long time.
+   */
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
+});
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const formatCurrency = (amount) => {
+  return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+};
+
+/* =========================================================
+   ORDER EMAIL HTML
+========================================================= */
 
 const buildOrderEmailHtml = (order, customerName) => {
-  const rows = order.products
+  const rows = (order.products || [])
     .map(
       (item) => `
         <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;">
-            ${item.name}
+          <td
+            style="
+              padding:8px 12px;
+              border-bottom:1px solid #eee;
+            "
+          >
+            ${item.name || ""}
           </td>
 
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">
-            ${item.quantity}
+          <td
+            style="
+              padding:8px 12px;
+              border-bottom:1px solid #eee;
+              text-align:center;
+            "
+          >
+            ${item.quantity || 0}
           </td>
 
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">
-            ${formatCurrency(item.price * item.quantity)}
+          <td
+            style="
+              padding:8px 12px;
+              border-bottom:1px solid #eee;
+              text-align:right;
+            "
+          >
+            ${formatCurrency(
+              Number(item.price || 0) *
+                Number(item.quantity || 0)
+            )}
           </td>
-        </tr>`
+        </tr>
+      `
     )
     .join("");
 
   const addr = order.shippingAddress || {};
 
   return `
-    <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+    <div
+      style="
+        font-family:Arial,Helvetica,sans-serif;
+        max-width:600px;
+        margin:0 auto;
+        color:#1a1a1a;
+      "
+    >
 
       <h2 style="color:#1F4E78;">
         Thank you for your order${
@@ -49,26 +105,32 @@ const buildOrderEmailHtml = (order, customerName) => {
       </h2>
 
       <p>
-        Your order has been placed successfully. Here are the details:
+        Your order has been placed successfully.
+        Here are the details:
       </p>
 
       <p style="margin:4px 0;">
-        <strong>Order ID:</strong> ${order._id}
+        <strong>Order ID:</strong>
+        ${order._id}
       </p>
 
       <p style="margin:4px 0;">
-        <strong>Payment Method:</strong> ${
-          order.paymentMethod || "N/A"
-        }
+        <strong>Payment Method:</strong>
+        ${order.paymentMethod || "N/A"}
       </p>
 
       <p style="margin:4px 0;">
-        <strong>Order Status:</strong> ${
-          order.orderStatus || "Pending"
-        }
+        <strong>Order Status:</strong>
+        ${order.orderStatus || "Pending"}
       </p>
 
-      <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+      <table
+        style="
+          width:100%;
+          border-collapse:collapse;
+          margin-top:16px;
+        "
+      >
         <thead>
           <tr style="background:#f3f4f6;">
             <th style="padding:8px 12px;text-align:left;">
@@ -93,13 +155,21 @@ const buildOrderEmailHtml = (order, customerName) => {
           <tr>
             <td
               colspan="2"
-              style="padding:12px;text-align:right;font-weight:bold;"
+              style="
+                padding:12px;
+                text-align:right;
+                font-weight:bold;
+              "
             >
               Total
             </td>
 
             <td
-              style="padding:12px;text-align:right;font-weight:bold;"
+              style="
+                padding:12px;
+                text-align:right;
+                font-weight:bold;
+              "
             >
               ${formatCurrency(order.totalPrice)}
             </td>
@@ -114,13 +184,15 @@ const buildOrderEmailHtml = (order, customerName) => {
       <p style="margin:0;">
         ${addr.fullName || ""}<br/>
         ${addr.address || ""}<br/>
-        ${addr.city || ""}, ${addr.state || ""} ${addr.pincode || ""}<br/>
+        ${addr.city || ""}, ${addr.state || ""}
+        ${addr.pincode || ""}<br/>
         Phone: ${addr.phone || ""}
       </p>
 
       <p style="margin-top:24px;">
-        If you have any questions about your order, just reply to this email
-        and our support team will help you out.
+        If you have any questions about your order,
+        just reply to this email and our support team
+        will help you.
       </p>
 
       <p style="margin-top:24px;">
@@ -131,7 +203,14 @@ const buildOrderEmailHtml = (order, customerName) => {
   `;
 };
 
-const sendOrderConfirmationEmail = async (order, customer) => {
+/* =========================================================
+   SEND ORDER CONFIRMATION EMAIL
+========================================================= */
+
+const sendOrderConfirmationEmail = async (
+  order,
+  customer
+) => {
   console.log(
     `[ORDER-EMAIL] Function called for order ${order._id}, customer:`,
     customer
@@ -142,38 +221,81 @@ const sendOrderConfirmationEmail = async (order, customer) => {
       : customer
   );
 
+  /* -----------------------------------------
+     SMTP CONFIG CHECK
+  ----------------------------------------- */
+
   if (
     !process.env.SMTP_HOST ||
     !process.env.SMTP_USER ||
     !process.env.SMTP_PASS
   ) {
-    console.warn("[ORDER-EMAIL] SKIPPED: SMTP not configured");
+    console.warn(
+      "[ORDER-EMAIL] SKIPPED: SMTP_HOST / SMTP_USER / SMTP_PASS not configured"
+    );
+
     return;
   }
 
+  /* -----------------------------------------
+     CUSTOMER EMAIL CHECK
+  ----------------------------------------- */
+
   if (!customer?.email) {
     console.warn(
-      "[ORDER-EMAIL] SKIPPED: customer has no email on file"
+      "[ORDER-EMAIL] SKIPPED: customer has no email"
     );
+
     return;
   }
 
   try {
-    const info = await mailTransport().sendMail({
-      from: '"All India Boards Support" <support@allindiaboards.com>',
+    const fromAddress =
+      process.env.SMTP_FROM ||
+      process.env.SMTP_USER;
+
+    const info = await mailTransport.sendMail({
+      from: `"All India Boards Support" <${fromAddress}>`,
+
       to: customer.email,
+
+      replyTo: fromAddress,
+
       subject: `Order Confirmed - #${order._id}`,
-      html: buildOrderEmailHtml(order, customer.name),
-      text: `Thank you for your order #${order._id}. Total: ${formatCurrency(
-        order.totalPrice
-      )}. We'll notify you when it ships.`,
+
+      html: buildOrderEmailHtml(
+        order,
+        customer.name
+      ),
+
+      text: `
+Thank you for your order #${order._id}.
+
+Total: ${formatCurrency(order.totalPrice)}
+
+Payment Method: ${order.paymentMethod}
+
+Order Status: ${order.orderStatus}
+
+We'll notify you when your order ships.
+
+— Team All India Boards
+      `.trim(),
     });
 
     console.log(
       `[ORDER-EMAIL] SUCCESS - messageId: ${info.messageId}`
     );
   } catch (error) {
-    console.error("[ORDER-EMAIL] ERROR:", error.message);
+    /*
+     * IMPORTANT:
+     *
+     * Email failure must NEVER fail the order.
+     */
+    console.error(
+      `[ORDER-EMAIL] ERROR for order ${order._id}:`,
+      error?.message || error
+    );
   }
 };
 
@@ -182,69 +304,286 @@ const sendOrderConfirmationEmail = async (order, customer) => {
 ========================================================= */
 
 exports.createOrder = async (req, res) => {
+  let stockChanges = [];
+
   try {
     const {
       products,
       shippingAddress,
-      paymentMethod,
+      paymentMethod = "COD",
     } = req.body;
 
-    if (!products || products.length === 0) {
+    /* -----------------------------------------
+       CART VALIDATION
+    ----------------------------------------- */
+
+    if (
+      !Array.isArray(products) ||
+      products.length === 0
+    ) {
       return res.status(400).json({
+        success: false,
         message: "Cart is empty",
       });
     }
 
+    /* -----------------------------------------
+       PAYMENT VALIDATION
+    ----------------------------------------- */
+
+    if (
+      !["COD", "Online"].includes(paymentMethod)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment method",
+      });
+    }
+
+    /* -----------------------------------------
+       ADDRESS VALIDATION
+    ----------------------------------------- */
+
+    if (!shippingAddress) {
+      return res.status(400).json({
+        success: false,
+        message: "Shipping address is required",
+      });
+    }
+
+    const requiredAddressFields = [
+      "fullName",
+      "phone",
+      "address",
+      "city",
+      "state",
+      "pincode",
+    ];
+
+    for (const field of requiredAddressFields) {
+      if (
+        !String(
+          shippingAddress[field] || ""
+        ).trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} is required`,
+        });
+      }
+    }
+
+    /* -----------------------------------------
+       BUILD ORDER ITEMS
+    ----------------------------------------- */
+
     let totalPrice = 0;
+
     const orderItems = [];
 
     for (const item of products) {
-      const product = await Product.findById(item.productId);
+      if (!item?.productId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product in cart",
+        });
+      }
+
+      const quantity = Number(item.quantity);
+
+      if (
+        !Number.isInteger(quantity) ||
+        quantity <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product quantity",
+        });
+      }
+
+      const product = await Product.findById(
+        item.productId
+      );
 
       if (!product) {
         return res.status(404).json({
+          success: false,
           message: "Product not found",
         });
       }
 
-      if (product.stock < item.quantity) {
+      /* -----------------------------------------
+         STOCK CHECK
+      ----------------------------------------- */
+
+      if (
+        Number(product.stock || 0) <
+        quantity
+      ) {
         return res.status(400).json({
+          success: false,
           message: `Insufficient stock for ${product.name}`,
         });
       }
 
-      product.stock -= item.quantity;
+      /*
+       * Keep track of stock changes.
+       * If something fails later, stock can be restored.
+       */
+      stockChanges.push({
+        product,
+        quantity,
+      });
+
+      /* -----------------------------------------
+         REDUCE STOCK
+      ----------------------------------------- */
+
+      product.stock -= quantity;
+
       await product.save();
+
+      /* -----------------------------------------
+         ORDER ITEM
+      ----------------------------------------- */
+
+      const price = Number(
+        product.price || 0
+      );
 
       orderItems.push({
         productId: product._id,
         name: product.name,
-        price: product.price,
-        quantity: item.quantity,
+        price,
+        quantity,
       });
 
-      totalPrice += product.price * item.quantity;
+      totalPrice +=
+        price * quantity;
     }
+
+    /* -----------------------------------------
+       CREATE ORDER
+    ----------------------------------------- */
 
     const order = await Order.create({
       userId: req.user.id,
+
       products: orderItems,
+
       totalPrice,
-      shippingAddress,
+
+      shippingAddress: {
+        fullName: String(
+          shippingAddress.fullName
+        ).trim(),
+
+        phone: String(
+          shippingAddress.phone
+        ).trim(),
+
+        address: String(
+          shippingAddress.address
+        ).trim(),
+
+        city: String(
+          shippingAddress.city
+        ).trim(),
+
+        state: String(
+          shippingAddress.state
+        ).trim(),
+
+        pincode: String(
+          shippingAddress.pincode
+        ).trim(),
+      },
+
       paymentMethod,
+
+      paymentStatus: "Pending",
     });
 
-    const customer = await User.findById(req.user.id).select(
-      "name email"
+    /* -----------------------------------------
+       GET CUSTOMER
+    ----------------------------------------- */
+
+    const customer =
+      await User.findById(
+        req.user.id
+      ).select("name email");
+
+    /* =====================================================
+       VERY IMPORTANT FIX
+       
+       DO NOT DO THIS:
+       
+       await sendOrderConfirmationEmail(...)
+       
+       Because SMTP timeout would keep the API request
+       waiting and checkout would remain on:
+       
+       "Processing Order..."
+       
+       Instead email runs in background.
+    ===================================================== */
+
+    void sendOrderConfirmationEmail(
+      order,
+      customer
+    ).catch((error) => {
+      console.error(
+        `[ORDER-EMAIL] UNHANDLED ERROR for order ${order._id}:`,
+        error?.message || error
+      );
+    });
+
+    /* -----------------------------------------
+       RETURN ORDER IMMEDIATELY
+    ----------------------------------------- */
+
+    return res.status(201).json({
+      success: true,
+
+      message:
+        "Order placed successfully",
+
+      order,
+
+      // Keeping this at top level makes the
+      // frontend compatible with your existing code.
+      _id: order._id,
+    });
+  } catch (error) {
+    console.error(
+      "ORDER ERROR:",
+      error
     );
 
-    await sendOrderConfirmationEmail(order, customer);
+    /* -----------------------------------------
+       RESTORE STOCK
+    ----------------------------------------- */
 
-    return res.status(201).json(order);
-  } catch (error) {
-    console.error("ORDER ERROR:", error);
+    if (stockChanges.length > 0) {
+      for (const change of stockChanges) {
+        try {
+          change.product.stock +=
+            change.quantity;
+
+          await change.product.save();
+        } catch (restoreError) {
+          console.error(
+            "STOCK RESTORE ERROR:",
+            restoreError?.message ||
+              restoreError
+          );
+        }
+      }
+    }
 
     return res.status(500).json({
+      success: false,
+      message: "Unable to place order",
       error: error.message,
     });
   }
@@ -254,17 +593,32 @@ exports.createOrder = async (req, res) => {
    USER ORDERS
 ========================================================= */
 
-exports.getUserOrders = async (req, res) => {
+exports.getUserOrders = async (
+  req,
+  res
+) => {
   try {
-    const orders = await Order.find({
-      userId: req.user.id,
-    })
-      .populate("products.productId")
-      .sort({ createdAt: -1 });
+    const orders =
+      await Order.find({
+        userId: req.user.id,
+      })
+        .populate(
+          "products.productId"
+        )
+        .sort({
+          createdAt: -1,
+        });
 
     return res.json(orders);
   } catch (error) {
+    console.error(
+      "GET USER ORDERS ERROR:",
+      error
+    );
+
     return res.status(500).json({
+      success: false,
+      message: "Unable to fetch orders",
       error: error.message,
     });
   }
@@ -274,26 +628,47 @@ exports.getUserOrders = async (req, res) => {
    ADMIN ALL ORDERS
 ========================================================= */
 
-exports.getAllOrders = async (req, res) => {
+exports.getAllOrders = async (
+  req,
+  res
+) => {
   try {
-    const orders = await Order.find()
-      .populate("userId", "name email")
-      .populate("products.productId")
-      .sort({ createdAt: -1 });
+    const orders =
+      await Order.find()
+        .populate(
+          "userId",
+          "name email"
+        )
+        .populate(
+          "products.productId"
+        )
+        .sort({
+          createdAt: -1,
+        });
 
     return res.json(orders);
   } catch (error) {
+    console.error(
+      "GET ALL ORDERS ERROR:",
+      error
+    );
+
     return res.status(500).json({
+      success: false,
+      message: "Unable to fetch orders",
       error: error.message,
     });
   }
 };
 
 /* =========================================================
-   UPDATE STATUS
+   UPDATE ORDER STATUS
 ========================================================= */
 
-exports.updateOrderStatus = async (req, res) => {
+exports.updateOrderStatus = async (
+  req,
+  res
+) => {
   try {
     const allowed = [
       "Pending",
@@ -303,35 +678,85 @@ exports.updateOrderStatus = async (req, res) => {
       "Cancelled",
     ];
 
-    if (!allowed.includes(req.body.status)) {
+    if (
+      !allowed.includes(
+        req.body.status
+      )
+    ) {
       return res.status(400).json({
+        success: false,
         message: "Invalid status",
       });
     }
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      {
-        orderStatus: req.body.status,
-        ...(req.body.status === "Shipped"
-          ? { trackingStatus: "Shipped" }
-          : {}),
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const update = {
+      orderStatus:
+        req.body.status,
+    };
+
+    /* -----------------------------------------
+       TRACKING STATUS
+    ----------------------------------------- */
+
+    if (
+      req.body.status === "Shipped"
+    ) {
+      update.trackingStatus =
+        "Shipped";
+    }
+
+    if (
+      req.body.status === "Delivered"
+    ) {
+      update.trackingStatus =
+        "Delivered";
+    }
+
+    if (
+      req.body.status === "Cancelled"
+    ) {
+      update.trackingStatus =
+        "Cancelled";
+    }
+
+    const order =
+      await Order.findByIdAndUpdate(
+        req.params.id,
+        update,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
 
     if (!order) {
       return res.status(404).json({
+        success: false,
         message: "Order not found",
       });
     }
 
     return res.json(order);
   } catch (error) {
+    console.error(
+      "UPDATE ORDER STATUS ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID",
+      });
+    }
+
     return res.status(500).json({
+      success: false,
+      message:
+        "Unable to update order status",
       error: error.message,
     });
   }
@@ -341,42 +766,117 @@ exports.updateOrderStatus = async (req, res) => {
    ASSIGN TRACKING
 ========================================================= */
 
-exports.assignTracking = async (req, res) => {
+exports.assignTracking = async (
+  req,
+  res
+) => {
   try {
     const {
       trackingId,
       courierName,
+      trackingUrl,
+      estimatedDelivery,
     } = req.body;
 
-    if (!trackingId) {
+    if (
+      !String(
+        trackingId || ""
+      ).trim()
+    ) {
       return res.status(400).json({
-        message: "Tracking ID is required",
+        success: false,
+        message:
+          "Tracking ID is required",
       });
     }
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      {
-        trackingId,
-        courierName: courierName || "",
-        trackingStatus: "Shipped",
-        orderStatus: "Shipped",
-      },
-      {
-        new: true,
-        runValidators: true,
+    const update = {
+      trackingId:
+        String(trackingId).trim(),
+
+      courierName:
+        String(
+          courierName || ""
+        ).trim(),
+
+      trackingUrl:
+        String(
+          trackingUrl || ""
+        ).trim(),
+
+      trackingStatus:
+        "Shipped",
+
+      orderStatus:
+        "Shipped",
+    };
+
+    /* -----------------------------------------
+       ESTIMATED DELIVERY
+    ----------------------------------------- */
+
+    if (estimatedDelivery) {
+      const date =
+        new Date(
+          estimatedDelivery
+        );
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid estimated delivery date",
+        });
       }
-    );
+
+      update.estimatedDelivery =
+        date;
+    }
+
+    const order =
+      await Order.findByIdAndUpdate(
+        req.params.id,
+        update,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
 
     if (!order) {
       return res.status(404).json({
-        message: "Order not found",
+        success: false,
+        message:
+          "Order not found",
       });
     }
 
     return res.json(order);
   } catch (error) {
+    console.error(
+      "ASSIGN TRACKING ERROR:",
+      error
+    );
+
+    if (
+      error.name ===
+      "CastError"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid order ID",
+      });
+    }
+
     return res.status(500).json({
+      success: false,
+      message:
+        "Unable to assign tracking",
       error: error.message,
     });
   }
@@ -387,32 +887,54 @@ exports.assignTracking = async (req, res) => {
    USER CAN ONLY SEE THEIR OWN ORDER
 ========================================================= */
 
-exports.getSingleOrder = async (req, res) => {
+exports.getSingleOrder = async (
+  req,
+  res
+) => {
   try {
-    const order = await Order.findOne({
-      _id: req.params.id,
-      userId: req.user.id,
-    })
-      .populate("products.productId")
-      .populate("userId", "name email");
+    const order =
+      await Order.findOne({
+        _id: req.params.id,
+        userId: req.user.id,
+      })
+        .populate(
+          "products.productId"
+        )
+        .populate(
+          "userId",
+          "name email"
+        );
 
     if (!order) {
       return res.status(404).json({
-        message: "Order not found",
+        success: false,
+        message:
+          "Order not found",
       });
     }
 
     return res.json(order);
   } catch (error) {
-    console.error("GET SINGLE ORDER ERROR:", error);
+    console.error(
+      "GET SINGLE ORDER ERROR:",
+      error
+    );
 
-    if (error.name === "CastError") {
+    if (
+      error.name ===
+      "CastError"
+    ) {
       return res.status(400).json({
-        message: "Invalid order ID",
+        success: false,
+        message:
+          "Invalid order ID",
       });
     }
 
     return res.status(500).json({
+      success: false,
+      message:
+        "Unable to fetch order",
       error: error.message,
     });
   }
