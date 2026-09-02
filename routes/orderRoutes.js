@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -7,7 +8,7 @@ const {
   getAllOrders,
   updateOrderStatus,
   assignTracking,
-  getSingleOrder
+  getSingleOrder,
 } = require("../controllers/orderController");
 
 const auth = require("../middleware/authMiddleware");
@@ -25,10 +26,10 @@ router.get("/", auth, admin, getAllOrders);
 // UPDATE STATUS
 router.put("/:id/status", auth, admin, updateOrderStatus);
 
-// 🚚 TRACKING
+// ASSIGN TRACKING
 router.put("/:id/tracking", auth, admin, assignTracking);
 
-// 📱 GET SINGLE ORDER
+// GET SINGLE USER ORDER
 router.get("/:id", auth, getSingleOrder);
 
 module.exports = router;
