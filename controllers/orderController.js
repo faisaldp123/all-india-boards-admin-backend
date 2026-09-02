@@ -7,14 +7,13 @@ const nodemailer = require("nodemailer");
    SMTP CONFIGURATION
 ========================================================= */
 
-const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 
 const mailTransport = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: SMTP_PORT,
 
-  // 465 = SSL
-  // 587 = STARTTLS
+  // GoDaddy SMTP port 465 = SSL
   secure: SMTP_PORT === 465,
 
   auth: {
@@ -22,16 +21,33 @@ const mailTransport = nodemailer.createTransport({
     pass: process.env.SMTP_PASS,
   },
 
-  /*
-   * VERY IMPORTANT
-   *
-   * If SMTP is down/wrong, do NOT allow the order API
-   * to remain blocked for a long time.
-   */
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
+  // Give SMTP enough time to connect
+  connectionTimeout: 30000,
+  greetingTimeout: 30000,
+  socketTimeout: 30000,
 });
+
+/* =========================================================
+   SMTP CONNECTION TEST
+========================================================= */
+
+if (
+  process.env.SMTP_HOST &&
+  process.env.SMTP_USER &&
+  process.env.SMTP_PASS
+) {
+  mailTransport.verify((error) => {
+    if (error) {
+      console.error(
+        "[SMTP] Connection failed:",
+        error.code || "",
+        error.message
+      );
+    } else {
+      console.log("[SMTP] Connection successful");
+    }
+  });
+}
 
 /* =========================================================
    HELPERS
@@ -231,7 +247,7 @@ const sendOrderConfirmationEmail = async (
     !process.env.SMTP_PASS
   ) {
     console.warn(
-      "[ORDER-EMAIL] SKIPPED: SMTP_HOST / SMTP_USER / SMTP_PASS not configured"
+      "[ORDER-EMAIL] SKIPPED: SMTP settings not configured"
     );
 
     return;
@@ -287,13 +303,9 @@ We'll notify you when your order ships.
       `[ORDER-EMAIL] SUCCESS - messageId: ${info.messageId}`
     );
   } catch (error) {
-    /*
-     * IMPORTANT:
-     *
-     * Email failure must NEVER fail the order.
-     */
     console.error(
       `[ORDER-EMAIL] ERROR for order ${order._id}:`,
+      error?.code || "",
       error?.message || error
     );
   }
@@ -426,10 +438,6 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      /*
-       * Keep track of stock changes.
-       * If something fails later, stock can be restored.
-       */
       stockChanges.push({
         product,
         quantity,
@@ -513,20 +521,9 @@ exports.createOrder = async (req, res) => {
         req.user.id
       ).select("name email");
 
-    /* =====================================================
-       VERY IMPORTANT FIX
-       
-       DO NOT DO THIS:
-       
-       await sendOrderConfirmationEmail(...)
-       
-       Because SMTP timeout would keep the API request
-       waiting and checkout would remain on:
-       
-       "Processing Order..."
-       
-       Instead email runs in background.
-    ===================================================== */
+    /* -----------------------------------------
+       SEND EMAIL IN BACKGROUND
+    ----------------------------------------- */
 
     void sendOrderConfirmationEmail(
       order,
@@ -544,16 +541,11 @@ exports.createOrder = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-
-      message:
-        "Order placed successfully",
-
+      message: "Order placed successfully",
       order,
-
-      // Keeping this at top level makes the
-      // frontend compatible with your existing code.
       _id: order._id,
     });
+
   } catch (error) {
     console.error(
       "ORDER ERROR:",
@@ -694,10 +686,6 @@ exports.updateOrderStatus = async (
         req.body.status,
     };
 
-    /* -----------------------------------------
-       TRACKING STATUS
-    ----------------------------------------- */
-
     if (
       req.body.status === "Shipped"
     ) {
@@ -811,10 +799,6 @@ exports.assignTracking = async (
         "Shipped",
     };
 
-    /* -----------------------------------------
-       ESTIMATED DELIVERY
-    ----------------------------------------- */
-
     if (estimatedDelivery) {
       const date =
         new Date(
@@ -884,7 +868,6 @@ exports.assignTracking = async (
 
 /* =========================================================
    GET SINGLE ORDER
-   USER CAN ONLY SEE THEIR OWN ORDER
 ========================================================= */
 
 exports.getSingleOrder = async (
