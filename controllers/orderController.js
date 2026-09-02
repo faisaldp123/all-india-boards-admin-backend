@@ -3,9 +3,6 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
 
-// Reuses the same SMTP setup pattern as authController.js.
-// Requires SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS to already be set
-// in your environment (same ones used for the password-reset emails).
 const mailTransport = () =>
   nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -67,32 +64,36 @@ const buildOrderEmailHtml = (order, customerName) => {
       </p>
 
       <p style="margin-top:24px;">If you have any questions about your order, just reply to this email and our support team will help you out.</p>
-      <p style="margin-top:24px;">— Team All India Boards</p>
+      <p style="margin-top:24px;">\u2014 Team All India Boards</p>
     </div>
   `;
 };
 
 const sendOrderConfirmationEmail = async (order, customer) => {
+  console.log(`[ORDER-EMAIL] Function called for order ${order._id}, customer:`, customer ? { name: customer.name, email: customer.email } : customer);
+
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn("ORDER EMAIL SKIPPED: SMTP not configured");
+    console.warn("[ORDER-EMAIL] SKIPPED: SMTP not configured");
     return;
   }
   if (!customer?.email) {
-    console.warn("ORDER EMAIL SKIPPED: customer has no email on file");
+    console.warn("[ORDER-EMAIL] SKIPPED: customer has no email on file");
     return;
   }
 
+  console.log(`[ORDER-EMAIL] Attempting sendMail to ${customer.email} via host ${process.env.SMTP_HOST}`);
+
   try {
-    await mailTransport().sendMail({
+    const info = await mailTransport().sendMail({
       from: '"All India Boards Support" <support@allindiaboards.com>',
       to: customer.email,
       subject: `Order Confirmed - #${order._id}`,
       html: buildOrderEmailHtml(order, customer.name),
       text: `Thank you for your order #${order._id}. Total: ${formatCurrency(order.totalPrice)}. We'll notify you when it ships.`,
     });
+    console.log(`[ORDER-EMAIL] SUCCESS - messageId: ${info.messageId}, accepted: ${JSON.stringify(info.accepted)}, rejected: ${JSON.stringify(info.rejected)}, response: ${info.response}`);
   } catch (error) {
-    // Email failure should never block the order response - just log it.
-    console.error("ORDER CONFIRMATION EMAIL ERROR:", error);
+    console.error("[ORDER-EMAIL] ERROR:", error.message, error.code || "", error.responseCode || "");
   }
 };
 
@@ -140,10 +141,13 @@ exports.createOrder = async (req, res) => {
       paymentMethod,
     });
 
-    // Fire the confirmation email after the order is safely saved.
-    // Wrapped so an email failure never breaks the order response.
+    console.log(`[ORDER-EMAIL] Order ${order._id} created, fetching customer ${req.user.id}`);
     const customer = await User.findById(req.user.id).select("name email");
-    sendOrderConfirmationEmail(order, customer);
+    console.log(`[ORDER-EMAIL] Customer fetch result:`, customer);
+
+    // Deliberately awaited here (unlike before) so we can see exactly what
+    // happens before the response is sent, while we're debugging this.
+    await sendOrderConfirmationEmail(order, customer);
 
     res.status(201).json(order);
 
@@ -201,7 +205,7 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// 🚚 ASSIGN TRACKING
+// ASSIGN TRACKING
 exports.assignTracking = async (req, res) => {
   try {
     const { trackingId, courierName } = req.body;
@@ -222,7 +226,7 @@ exports.assignTracking = async (req, res) => {
   }
 };
 
-// 📱 GET SINGLE ORDER
+// GET SINGLE ORDER
 exports.getSingleOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
