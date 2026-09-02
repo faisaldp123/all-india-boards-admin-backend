@@ -8,19 +8,31 @@ const mailTransport = () =>
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: Number(process.env.SMTP_PORT) === 465,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
   });
 
-const formatCurrency = (amount) => `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
+const formatCurrency = (amount) =>
+  `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
 
 const buildOrderEmailHtml = (order, customerName) => {
   const rows = order.products
     .map(
       (item) => `
         <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;">${item.name}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${formatCurrency(item.price * item.quantity)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;">
+            ${item.name}
+          </td>
+
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">
+            ${item.quantity}
+          </td>
+
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">
+            ${formatCurrency(item.price * item.quantity)}
+          </td>
         </tr>`
     )
     .join("");
@@ -29,33 +41,76 @@ const buildOrderEmailHtml = (order, customerName) => {
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
-      <h2 style="color:#1F4E78;">Thank you for your order${customerName ? `, ${customerName}` : ""}!</h2>
-      <p>Your order has been placed successfully. Here are the details:</p>
 
-      <p style="margin:4px 0;"><strong>Order ID:</strong> ${order._id}</p>
-      <p style="margin:4px 0;"><strong>Payment Method:</strong> ${order.paymentMethod || "N/A"}</p>
-      <p style="margin:4px 0;"><strong>Order Status:</strong> ${order.orderStatus || "Pending"}</p>
+      <h2 style="color:#1F4E78;">
+        Thank you for your order${
+          customerName ? `, ${customerName}` : ""
+        }!
+      </h2>
+
+      <p>
+        Your order has been placed successfully. Here are the details:
+      </p>
+
+      <p style="margin:4px 0;">
+        <strong>Order ID:</strong> ${order._id}
+      </p>
+
+      <p style="margin:4px 0;">
+        <strong>Payment Method:</strong> ${
+          order.paymentMethod || "N/A"
+        }
+      </p>
+
+      <p style="margin:4px 0;">
+        <strong>Order Status:</strong> ${
+          order.orderStatus || "Pending"
+        }
+      </p>
 
       <table style="width:100%;border-collapse:collapse;margin-top:16px;">
         <thead>
           <tr style="background:#f3f4f6;">
-            <th style="padding:8px 12px;text-align:left;">Product</th>
-            <th style="padding:8px 12px;text-align:center;">Qty</th>
-            <th style="padding:8px 12px;text-align:right;">Subtotal</th>
+            <th style="padding:8px 12px;text-align:left;">
+              Product
+            </th>
+
+            <th style="padding:8px 12px;text-align:center;">
+              Qty
+            </th>
+
+            <th style="padding:8px 12px;text-align:right;">
+              Subtotal
+            </th>
           </tr>
         </thead>
+
         <tbody>
           ${rows}
         </tbody>
+
         <tfoot>
           <tr>
-            <td colspan="2" style="padding:12px;text-align:right;font-weight:bold;">Total</td>
-            <td style="padding:12px;text-align:right;font-weight:bold;">${formatCurrency(order.totalPrice)}</td>
+            <td
+              colspan="2"
+              style="padding:12px;text-align:right;font-weight:bold;"
+            >
+              Total
+            </td>
+
+            <td
+              style="padding:12px;text-align:right;font-weight:bold;"
+            >
+              ${formatCurrency(order.totalPrice)}
+            </td>
           </tr>
         </tfoot>
       </table>
 
-      <h3 style="margin-top:24px;">Shipping Address</h3>
+      <h3 style="margin-top:24px;">
+        Shipping Address
+      </h3>
+
       <p style="margin:0;">
         ${addr.fullName || ""}<br/>
         ${addr.address || ""}<br/>
@@ -63,25 +118,45 @@ const buildOrderEmailHtml = (order, customerName) => {
         Phone: ${addr.phone || ""}
       </p>
 
-      <p style="margin-top:24px;">If you have any questions about your order, just reply to this email and our support team will help you out.</p>
-      <p style="margin-top:24px;">\u2014 Team All India Boards</p>
+      <p style="margin-top:24px;">
+        If you have any questions about your order, just reply to this email
+        and our support team will help you out.
+      </p>
+
+      <p style="margin-top:24px;">
+        — Team All India Boards
+      </p>
+
     </div>
   `;
 };
 
 const sendOrderConfirmationEmail = async (order, customer) => {
-  console.log(`[ORDER-EMAIL] Function called for order ${order._id}, customer:`, customer ? { name: customer.name, email: customer.email } : customer);
+  console.log(
+    `[ORDER-EMAIL] Function called for order ${order._id}, customer:`,
+    customer
+      ? {
+          name: customer.name,
+          email: customer.email,
+        }
+      : customer
+  );
 
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  if (
+    !process.env.SMTP_HOST ||
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS
+  ) {
     console.warn("[ORDER-EMAIL] SKIPPED: SMTP not configured");
     return;
   }
+
   if (!customer?.email) {
-    console.warn("[ORDER-EMAIL] SKIPPED: customer has no email on file");
+    console.warn(
+      "[ORDER-EMAIL] SKIPPED: customer has no email on file"
+    );
     return;
   }
-
-  console.log(`[ORDER-EMAIL] Attempting sendMail to ${customer.email} via host ${process.env.SMTP_HOST}`);
 
   try {
     const info = await mailTransport().sendMail({
@@ -89,35 +164,53 @@ const sendOrderConfirmationEmail = async (order, customer) => {
       to: customer.email,
       subject: `Order Confirmed - #${order._id}`,
       html: buildOrderEmailHtml(order, customer.name),
-      text: `Thank you for your order #${order._id}. Total: ${formatCurrency(order.totalPrice)}. We'll notify you when it ships.`,
+      text: `Thank you for your order #${order._id}. Total: ${formatCurrency(
+        order.totalPrice
+      )}. We'll notify you when it ships.`,
     });
-    console.log(`[ORDER-EMAIL] SUCCESS - messageId: ${info.messageId}, accepted: ${JSON.stringify(info.accepted)}, rejected: ${JSON.stringify(info.rejected)}, response: ${info.response}`);
+
+    console.log(
+      `[ORDER-EMAIL] SUCCESS - messageId: ${info.messageId}`
+    );
   } catch (error) {
-    console.error("[ORDER-EMAIL] ERROR:", error.message, error.code || "", error.responseCode || "");
+    console.error("[ORDER-EMAIL] ERROR:", error.message);
   }
 };
 
-// CREATE ORDER
+/* =========================================================
+   CREATE ORDER
+========================================================= */
+
 exports.createOrder = async (req, res) => {
   try {
-    const { products, shippingAddress, paymentMethod } = req.body;
+    const {
+      products,
+      shippingAddress,
+      paymentMethod,
+    } = req.body;
 
     if (!products || products.length === 0) {
-      return res.status(400).json({ message: "Cart is empty" });
+      return res.status(400).json({
+        message: "Cart is empty",
+      });
     }
 
     let totalPrice = 0;
-    let orderItems = [];
+    const orderItems = [];
 
-    for (let item of products) {
+    for (const item of products) {
       const product = await Product.findById(item.productId);
 
       if (!product) {
-        return res.status(404).json({ message: "Product not found" });
+        return res.status(404).json({
+          message: "Product not found",
+        });
       }
 
       if (product.stock < item.quantity) {
-        return res.status(400).json({ message: "Out of stock" });
+        return res.status(400).json({
+          message: `Insufficient stock for ${product.name}`,
+        });
       }
 
       product.stock -= item.quantity;
@@ -141,36 +234,46 @@ exports.createOrder = async (req, res) => {
       paymentMethod,
     });
 
-    console.log(`[ORDER-EMAIL] Order ${order._id} created, fetching customer ${req.user.id}`);
-    const customer = await User.findById(req.user.id).select("name email");
-    console.log(`[ORDER-EMAIL] Customer fetch result:`, customer);
+    const customer = await User.findById(req.user.id).select(
+      "name email"
+    );
 
-    // Deliberately awaited here (unlike before) so we can see exactly what
-    // happens before the response is sent, while we're debugging this.
     await sendOrderConfirmationEmail(order, customer);
 
-    res.status(201).json(order);
-
+    return res.status(201).json(order);
   } catch (error) {
     console.error("ORDER ERROR:", error);
-    res.status(500).json({ error: error.message });
+
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };
 
-// USER ORDERS
+/* =========================================================
+   USER ORDERS
+========================================================= */
+
 exports.getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user.id })
+    const orders = await Order.find({
+      userId: req.user.id,
+    })
       .populate("products.productId")
       .sort({ createdAt: -1 });
 
-    res.json(orders);
+    return res.json(orders);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };
 
-// ADMIN ALL ORDERS
+/* =========================================================
+   ADMIN ALL ORDERS
+========================================================= */
+
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
@@ -178,63 +281,139 @@ exports.getAllOrders = async (req, res) => {
       .populate("products.productId")
       .sort({ createdAt: -1 });
 
-    res.json(orders);
+    return res.json(orders);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };
 
-// UPDATE STATUS
+/* =========================================================
+   UPDATE STATUS
+========================================================= */
+
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const allowed = ["Pending", "Packed", "Shipped", "Delivered", "Cancelled"];
+    const allowed = [
+      "Pending",
+      "Packed",
+      "Shipped",
+      "Delivered",
+      "Cancelled",
+    ];
 
     if (!allowed.includes(req.body.status)) {
-      return res.status(400).json({ message: "Invalid status" });
+      return res.status(400).json({
+        message: "Invalid status",
+      });
     }
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { orderStatus: req.body.status },
-      { new: true }
+      {
+        orderStatus: req.body.status,
+        ...(req.body.status === "Shipped"
+          ? { trackingStatus: "Shipped" }
+          : {}),
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
-    res.json(order);
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    return res.json(order);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };
 
-// ASSIGN TRACKING
+/* =========================================================
+   ASSIGN TRACKING
+========================================================= */
+
 exports.assignTracking = async (req, res) => {
   try {
-    const { trackingId, courierName } = req.body;
+    const {
+      trackingId,
+      courierName,
+    } = req.body;
+
+    if (!trackingId) {
+      return res.status(400).json({
+        message: "Tracking ID is required",
+      });
+    }
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       {
         trackingId,
-        courierName,
+        courierName: courierName || "",
         trackingStatus: "Shipped",
+        orderStatus: "Shipped",
       },
-      { new: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
-    res.json(order);
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    return res.json(order);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };
 
-// GET SINGLE ORDER
+/* =========================================================
+   GET SINGLE ORDER
+   USER CAN ONLY SEE THEIR OWN ORDER
+========================================================= */
+
 exports.getSingleOrder = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
+    const order = await Order.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+    })
       .populate("products.productId")
       .populate("userId", "name email");
 
-    res.json(order);
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    return res.json(order);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("GET SINGLE ORDER ERROR:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid order ID",
+      });
+    }
+
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 };

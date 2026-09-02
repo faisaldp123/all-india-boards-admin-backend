@@ -36,7 +36,13 @@ const orderSchema = new mongoose.Schema(
 
     orderStatus: {
       type: String,
-      enum: ["Pending", "Packed", "Shipped", "Delivered", "Cancelled"],
+      enum: [
+        "Pending",
+        "Packed",
+        "Shipped",
+        "Delivered",
+        "Cancelled",
+      ],
       default: "Pending",
     },
 
@@ -52,16 +58,39 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
     },
 
-    trackingId: String,
-    courierName: String,
+    // ==============================
+    // SHIPPING / TRACKING
+    // ==============================
+
+    trackingId: {
+      type: String,
+      default: "",
+    },
+
+    courierName: {
+      type: String,
+      default: "",
+    },
+
+    trackingUrl: {
+      type: String,
+      default: "",
+    },
+
     trackingStatus: {
       type: String,
       default: "Not Shipped",
     },
 
+    estimatedDelivery: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// ✅ IMPORTANT LINE (DO NOT CHANGE)
+// IMPORTANT
 module.exports = mongoose.model("Order", orderSchema);
