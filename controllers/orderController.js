@@ -1,32 +1,50 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const User = require("../models/User");
-const nodemailer = require("nodemailer");
 
 /* =========================================================
-   SMTP CONFIGURATION
-   IMPORTANT: created fresh on every send (NOT a module-level
-   singleton). A singleton created at import time can capture
-   process.env values before dotenv/Render finishes injecting
-   them, silently locking in a wrong port forever. Reading
-   process.env inside this function guarantees we always get
-   the current, correct values at send time.
+   EMAIL VIA BREVO HTTP API
+   Switched away from raw SMTP entirely. GoDaddy's SMTP relay
+   (smtpout.secureserver.net) was reliably timing out on
+   outbound connections from Render (network-level block, not
+   a code issue - confirmed by testing every port/config).
+   Brevo's API sends over plain HTTPS (port 443), which sidesteps
+   that whole class of problem.
+   Requires env vars: BREVO_API_KEY, SMTP_FROM (the verified
+   sender address, e.g. support@allindiaboards.com)
 ========================================================= */
 
-const mailTransport = () => {
-  const port = Number(process.env.SMTP_PORT || 587);
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port,
-    secure: port === 465,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+const sendViaBrevo = async ({ to, toName, subject, html, text }) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  const fromEmail = process.env.SMTP_FROM || "support@allindiaboards.com";
+
+  if (!apiKey) {
+    console.warn("[ORDER-EMAIL] SKIPPED: BREVO_API_KEY not configured");
+    return;
+  }
+
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
     },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    body: JSON.stringify({
+      sender: { name: "All India Boards Support", email: fromEmail },
+      to: [{ email: to, name: toName || undefined }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
   });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Brevo API error ${res.status}: ${body}`);
+  }
+
+  return res.json();
 };
 
 /* =========================================================
@@ -34,10 +52,6 @@ const mailTransport = () => {
 ========================================================= */
 
 const formatCurrency = (amount) => `\u20b9${Number(amount || 0).toLocaleString("en-IN")}`;
-
-/* =========================================================
-   ORDER EMAIL HTML
-========================================================= */
 
 const buildOrderEmailHtml = (order, customerName) => {
   const rows = (order.products || [])
@@ -104,31 +118,23 @@ const buildOrderEmailHtml = (order, customerName) => {
 const sendOrderConfirmationEmail = async (order, customer) => {
   console.log(`[ORDER-EMAIL] Function called for order ${order._id}, customer:`, customer ? { name: customer.name, email: customer.email } : customer);
 
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn("[ORDER-EMAIL] SKIPPED: SMTP settings not configured");
-    return;
-  }
-
   if (!customer?.email) {
     console.warn("[ORDER-EMAIL] SKIPPED: customer has no email");
     return;
   }
 
   try {
-    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
-
-    const info = await mailTransport().sendMail({
-      from: `"All India Boards Support" <${fromAddress}>`,
+    const result = await sendViaBrevo({
       to: customer.email,
-      replyTo: fromAddress,
+      toName: customer.name,
       subject: `Order Confirmed - #${order._id}`,
       html: buildOrderEmailHtml(order, customer.name),
       text: `Thank you for your order #${order._id}. Total: ${formatCurrency(order.totalPrice)}. Payment Method: ${order.paymentMethod}. Order Status: ${order.orderStatus}. We'll notify you when your order ships. \u2014 Team All India Boards`,
     });
 
-    console.log(`[ORDER-EMAIL] SUCCESS - messageId: ${info.messageId}, accepted: ${JSON.stringify(info.accepted)}, response: ${info.response}`);
+    console.log(`[ORDER-EMAIL] SUCCESS - Brevo messageId: ${result?.messageId || "n/a"}`);
   } catch (error) {
-    console.error(`[ORDER-EMAIL] ERROR for order ${order._id}:`, error?.code || "", error?.message || error);
+    console.error(`[ORDER-EMAIL] ERROR for order ${order._id}:`, error.message);
   }
 };
 
@@ -189,12 +195,7 @@ exports.createOrder = async (req, res) => {
       await product.save();
 
       const price = Number(product.price || 0);
-      orderItems.push({
-        productId: product._id,
-        name: product.name,
-        price,
-        quantity,
-      });
+      orderItems.push({ productId: product._id, name: product.name, price, quantity });
 
       totalPrice += price * quantity;
     }
@@ -217,7 +218,6 @@ exports.createOrder = async (req, res) => {
 
     const customer = await User.findById(req.user.id).select("name email");
 
-    // Fire-and-forget: order response is not blocked by email sending.
     void sendOrderConfirmationEmail(order, customer).catch((error) => {
       console.error(`[ORDER-EMAIL] UNHANDLED ERROR for order ${order._id}:`, error?.message || error);
     });
